@@ -1,3 +1,12 @@
+## Preface
+This is a forked version of the SlamDUNK framework [1]. It was adapted to match our own experimental procedure. You can find the original source code [https://github.com/t-neumann/slamdunk/releases/latest](here), and read the docs [https://t-neumann.github.io/slamdunk/docs.htm](here). 
+
+### References
+
+[1] Neumann, T., Herzog, V. A., Muhar, M., Haeseler, von, A., Zuber, J., Ameres, S. L., & Rescheneder, P. (2019). [Quantification of experimentally induced nucleotide conversions in high-throughput sequencing datasets](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2849-7). BMC Bioinformatics, 20(1), 258. http://doi.org/10.1186/s12859-019-2849-7
+
+
+## Original README 
 <img src="http://t-neumann.github.io/slamdunk/images/slamdunk_logo_light.png" width="300" title="Slamdunk">
 
 ### Streamlining SLAM-Seq analysis with ultra-high sensitivity.
@@ -27,7 +36,7 @@ http://t-neumann.github.io/slamdunk
 
 [![nfcore/slamseq](https://github.com/nf-core/slamseq/raw/master/docs/images/nf-core-slamseq_logo.png)](https://nf-co.re/slamseq)
 
-### Please cite
+### References
 
-Neumann, T., Herzog, V. A., Muhar, M., Haeseler, von, A., Zuber, J., Ameres, S. L., & Rescheneder, P. (2019). [Quantification of experimentally induced nucleotide conversions in high-throughput sequencing datasets](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2849-7). BMC Bioinformatics, 20(1), 258. http://doi.org/10.1186/s12859-019-2849-7
+[1] Neumann, T., Herzog, V. A., Muhar, M., Haeseler, von, A., Zuber, J., Ameres, S. L., & Rescheneder, P. (2019). [Quantification of experimentally induced nucleotide conversions in high-throughput sequencing datasets](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2849-7). BMC Bioinformatics, 20(1), 258. http://doi.org/10.1186/s12859-019-2849-7
 
