@@ -162,7 +162,7 @@ setup(
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
     'console_scripts': [
-        'slamdunk=slamdunk.slamdunk:run',
+        'slamdunk=slamdunk.slamdunk_main:run',
         'alleyoop=slamdunk.alleyoop:run',
         'splash=slamdunk.splash:run',
     ],
