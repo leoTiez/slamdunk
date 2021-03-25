@@ -266,7 +266,7 @@ def processFilter(bam, mq, identity, nm, bed, paired, outputDirectory, n):
     _ = Parallel(n_jobs=n, verbose=verbose)(
         delayed(runFilter)(bam[tid], bed, mq, identity, nm, paired, dunkPath) for tid in range(0, len(bam)))
     dunkFinished()
-    return dunkPath
+    return dunkPath, [os.path.join(dunkPath, replaceExtension(basename(b), ".bam", "_filtered")) for b in bam]
 
 
 def processSNP(bam, fasta, minCov, minVarFreq, minQual, outputDirectory, n):
@@ -328,7 +328,7 @@ def runMap(
         skipSAM,
         isPaired=False
 ):
-    extension = "_slamdunk_mapped%s" % "" if not isPaired else "_paired"
+    extension = "_slamdunk_mapped%s" % ("" if not isPaired else "_paired")
     base_name = basename(inputBAM) if not isPaired else basename(inputBAM[0])
 
     if skipSAM:
@@ -378,15 +378,15 @@ def runMap(
 def runSam2Bam(bam, threads, outputDirectory, isPaired=False):
     inputSAM = os.path.join(
         outputDirectory,
-        replaceExtension(basename(bam), ".sam", "_slamdunk_mapped%s" % "" if not isPaired else "_paired")
+        replaceExtension(basename(bam), ".sam", "_slamdunk_mapped%s" % ("" if not isPaired else "_paired"))
     )
     outputBAM = os.path.join(
         outputDirectory,
-        replaceExtension(basename(bam), ".bam", "_slamdunk_mapped%s" % "" if not isPaired else "_paired")
+        replaceExtension(basename(bam), ".bam", "_slamdunk_mapped%s" % ("" if not isPaired else "_paired"))
     )
     outputLOG = os.path.join(
         outputDirectory,
-        replaceExtension(basename(bam), ".log", "_slamdunk_mapped%s" % "" if not isPaired else "_paired")
+        replaceExtension(basename(bam), ".log", "_slamdunk_mapped%s" % ("" if not isPaired else "_paired"))
     )
     mapper.sort(inputSAM, outputBAM, getLogFile(outputLOG), threads, False, printOnly, verbose, isPaired)
     stepFinished()
@@ -529,26 +529,17 @@ def runAll(args):
         args.multimap = True
     if not args.multimap:
         bed = None
-    bam = args.bam
     mq = args.mq
     identity = args.identity
     nm = args.nm
-    dunkPath = processFilter(bam, mq, identity, nm, bed, args.paired, outputDirectory, n)
-    dunkbufferOut = []
-
-    for file in dunkbufferIn:
-        dunkbufferOut.append(os.path.join(dunkPath, replaceExtension(basename(file), ".bam", "_filtered")))
-
-    dunkbufferIn = dunkbufferOut
-    dunkbufferOut = []
-    dunkFinished()
+    dunkPath, dunkbufferIn = processFilter(dunkbufferIn, mq, identity, nm, bed, args.paired, outputDirectory, n)
 
     # Run snps dunk only if vcf not specified
     snpDirectory = None
     vcfFile = None
 
     if not "vcfFile" in args:
-        snpDirectory = processSNP(bam, referenceFile, args.cov, args.var, args.minQual, outputDirectory, n)
+        snpDirectory = processSNP(dunkbufferIn, referenceFile, args.cov, args.var, args.minQual, outputDirectory, n)
         dunkFinished()
     else:
         vcfFile = args.vcfFile
