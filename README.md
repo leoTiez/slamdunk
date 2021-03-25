@@ -1,6 +1,31 @@
 ## Preface
-This is a forked version of the SlamDUNK framework [1]. It was adapted to match our own experimental procedure. You can find the original source code [https://github.com/t-neumann/slamdunk/releases/latest](here), and read the docs [https://t-neumann.github.io/slamdunk/docs.htm](here). 
+This is a forked version of the SlamDUNK framework [1]. It was adapted to match our own experimental procedure. 
+You can find the original source code [here](https://github.com/t-neumann/slamdunk/releases/latest),
+ and read the docs [here](https://t-neumann.github.io/slamdunk/docs.html). 
 
+
+## Installation for Usage
+The code is written in Python. A version 3.6 or above is recommended. It is assumed that `pip` and/or `anaconda`
+is installed. Clone this repository and install it via
+
+```commandline
+conda env create -f environment.yml
+python3 -m pip install .
+```
+
+With some few exceptions, the documentation remains the same as already presented
+[here](https://t-neumann.github.io/slamdunk/docs.html). However, the major changes include:
+
+1. It is possible to take all reads mapped to all of the genome into account. Generally, this is done by NOT passing
+a `bed` file
+2. Allow paired mapping. Pass the `--paired` flag to indicate that the two files are paired reads. For example
+```commandline
+map --paired -5 0 read1.fastq.gz read2.fastq.gz -r reference.fa -o out/
+``` 
+where `read1.fastq.gz` and `read2.fastq.gz` are your paired reads, `-5 0` means that you take the full 5' end into
+account, `-r reference.fa` is your reference file, and `-o out/` is the output directory.
+
+ 
 ### References
 
 [1] Neumann, T., Herzog, V. A., Muhar, M., Haeseler, von, A., Zuber, J., Ameres, S. L., & Rescheneder, P. (2019). [Quantification of experimentally induced nucleotide conversions in high-throughput sequencing datasets](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2849-7). BMC Bioinformatics, 20(1), 258. http://doi.org/10.1186/s12859-019-2849-7
@@ -35,8 +60,4 @@ http://t-neumann.github.io/slamdunk
 ### nf-core slamseq workflow
 
 [![nfcore/slamseq](https://github.com/nf-core/slamseq/raw/master/docs/images/nf-core-slamseq_logo.png)](https://nf-co.re/slamseq)
-
-### References
-
-[1] Neumann, T., Herzog, V. A., Muhar, M., Haeseler, von, A., Zuber, J., Ameres, S. L., & Rescheneder, P. (2019). [Quantification of experimentally induced nucleotide conversions in high-throughput sequencing datasets](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2849-7). BMC Bioinformatics, 20(1), 258. http://doi.org/10.1186/s12859-019-2849-7
 
