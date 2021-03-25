@@ -172,11 +172,12 @@ def computeTconversionsAll(
     bamFile = pysam.AlignmentFile(bam, "rb")
     if bamFile.header['HD']['SO'] != 'queryname':
         # Sort bam file
-        sbam = replaceExtension(basename(bam), '.bam', '_sorted')
-        run(
-            'samtools sort -n %s -o %s' % (bam, sbam),
-            log
-        )
+        sbam = replaceExtension(bam, '.bam', '_sorted')
+        if not os.path.exists(sbam):
+            run(
+                'samtools sort -n %s -o %s' % (bam, sbam),
+                log
+            )
     else:
         sbam = bam
 
