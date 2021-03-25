@@ -124,11 +124,20 @@ def getchar():
     sys.stdin.readline()
 
 def files_exist(files):
-    if (type(files) is list) :
-        for f in files:
-            if not os.path.exists(f):
+    def expUser(f):
+        if '~' in f:
+            f_ = os.path.expanduser(f)
+        else:
+            f_ = f
+        return f_
+
+    if type(files) is list:
+        for num, f in enumerate(files):
+            files[num] = expUser(f)
+            if not os.path.exists(files[num]):
                 return False
     else:
+        files = expUser(files)
         if not os.path.exists(files):
             return False
     return True
@@ -156,7 +165,7 @@ def checkStep(inFiles, outFiles, force=False):
         for x in outFiles[1:]:
             outFileDate = min(outFileDate, os.path.getmtime(x))
         if outFileDate > inFileDate:
-            if(force == True):
+            if force:
                 return True
             else:
                 return False
@@ -182,17 +191,17 @@ def getPlotter(name):
     return os.path.join(projectPath, "plot", name + ".R")
 
 def run(cmd, log=sys.stderr, verbose=False, dry=False):
-    if(verbose or dry):
+    if verbose or dry:
         print(cmd, file=log)
 
-    if(not dry):
+    if not dry:
         #ret = os.system(cmd)
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
         lines_iterator = iter(p.stdout.readline, b"")
         for line in lines_iterator:
-            print(line, end="", file=log) # yield line
-        p.wait();
-        if(p.returncode != 0):
+            print(line, end="", file=log)  # yield line
+        p.wait()
+        if p.returncode != 0:
             raise RuntimeError("Error while executing command: \"" + cmd + "\"")
 
 def callR(cmd, log=sys.stderr, verbose=False, dry=False):
@@ -210,8 +219,10 @@ def callR(cmd, log=sys.stderr, verbose=False, dry=False):
         if(p.returncode != 0):
             raise RuntimeError("Error while executing command: \"" + cmd + "\"")
 
+
 def pysamIndex(outputBam):
-    pysam.index(outputBam)  # @UndefinedVariable
+    pysam.index(outputBam)
+
 
 def countReads(bam):
     bamFile = pysam.AlignmentFile(bam)
@@ -238,7 +249,7 @@ def getReadGroup(bam):
 def getSampleInfo(bam):
     sampleInfo = getReadGroup(bam)
     sampleInfos = sampleInfo['SM'].split(":")
-    return SampleInfo(ID = sampleInfo['ID'], Name = sampleInfos[0], Type = sampleInfos[1], Time = sampleInfos[2])
+    return SampleInfo(ID=sampleInfo['ID'], Name=sampleInfos[0], Type=sampleInfos[1], Time=sampleInfos[2])
 
 def readSampleNames(sampleNames, bams):
     samples = None

@@ -23,41 +23,33 @@ import sys
 import pysam
 import os
 import re
+import copy
+import numpy as np
 
 from os.path import basename
 
-from slamdunk.utils.misc import replaceExtension, getSampleInfo, SlamSeqInfo, md5, callR, getPlotter  # @UnresolvedImport
+from slamdunk.utils.misc import replaceExtension, getSampleInfo, SlamSeqInfo, md5, callR, getPlotter, run, pysamIndex  # @UnresolvedImport
 from slamdunk.utils.BedReader import BedIterator  # @UnresolvedImport
 
 from slamdunk.utils import SNPtools  # @UnresolvedImport
-from slamdunk.slamseq.SlamSeqFile import SlamSeqBamFile, ReadDirection, SlamSeqInterval  # @UnresolvedImport
+from slamdunk.slamseq.SlamSeqFile import SlamSeqBamFile, ReadDirection, SlamSeqInterval, SlamSeqIter  # @UnresolvedImport
 
 from slamdunk.version import __version__, __bam_version__, __count_version__  # @UnresolvedImport
 
-def pysamIndex(outputBam):
-    pysam.index(outputBam)  # @UndefinedVariable
 
 def collapse(expandedCSV, collapsedCSV, log):
-
     tcDict = {}
-
     outCSV = open(collapsedCSV, 'w')
-
     readNumber = 0
-
     with open(expandedCSV, 'r') as f:
-
         # Skip header
-#         next(f)
-
+        #  next(f)
         for line in f:
-
-            if (not line.startswith('#') and not line.startswith("Chromosome")) :
+            if not line.startswith('#') and not line.startswith("Chromosome"):
                 fields = line.rstrip().split('\t')
 
                 # For now, ignore everything after column 14
-                if (len(fields) >= 14) :
-
+                if len(fields) >= 14:
                     gene = fields[3]
                     length = fields[4]
                     Tcontent = fields[8]
@@ -67,48 +59,62 @@ def collapse(expandedCSV, collapsedCSV, log):
                     tcReadCount = fields[12]
                     multimapCount = fields[13]
 
-                    if (gene in tcDict.keys()) :
-                        tcDict[gene]['length'] += max(int(length),0)
-                        tcDict[gene]['Tcontent'] += max(int(Tcontent),0)
-                        tcDict[gene]['coverageOnTs'] += max(int(coverageOnTs),0)
-                        tcDict[gene]['conversionsOnTs'] += max(int(conversionsOnTs),0)
-                        tcDict[gene]['readCount'] += max(int(readCount),0)
-                        tcDict[gene]['tcReadCount'] += max(int(tcReadCount),0)
-                        tcDict[gene]['multimapCount'] += max(int(multimapCount),0)
-                    else :
+                    if gene in tcDict.keys():
+                        tcDict[gene]['length'] += max(int(length), 0)
+                        tcDict[gene]['Tcontent'] += max(int(Tcontent), 0)
+                        tcDict[gene]['coverageOnTs'] += max(int(coverageOnTs), 0)
+                        tcDict[gene]['conversionsOnTs'] += max(int(conversionsOnTs), 0)
+                        tcDict[gene]['readCount'] += max(int(readCount), 0)
+                        tcDict[gene]['tcReadCount'] += max(int(tcReadCount), 0)
+                        tcDict[gene]['multimapCount'] += max(int(multimapCount), 0)
+                    else:
                         tcDict[gene] = {}
-                        tcDict[gene]['length'] = max(int(length),0)
-                        tcDict[gene]['Tcontent'] = max(int(Tcontent),0)
-                        tcDict[gene]['coverageOnTs'] = max(int(coverageOnTs),0)
-                        tcDict[gene]['conversionsOnTs'] = max(int(conversionsOnTs),0)
-                        tcDict[gene]['readCount'] = max(int(readCount),0)
-                        tcDict[gene]['tcReadCount'] = max(int(tcReadCount),0)
-                        tcDict[gene]['multimapCount'] = max(int(multimapCount),0)
+                        tcDict[gene]['length'] = max(int(length), 0)
+                        tcDict[gene]['Tcontent'] = max(int(Tcontent), 0)
+                        tcDict[gene]['coverageOnTs'] = max(int(coverageOnTs), 0)
+                        tcDict[gene]['conversionsOnTs'] = max(int(conversionsOnTs), 0)
+                        tcDict[gene]['readCount'] = max(int(readCount), 0)
+                        tcDict[gene]['tcReadCount'] = max(int(tcReadCount), 0)
+                        tcDict[gene]['multimapCount'] = max(int(multimapCount), 0)
 
                     readNumber += int(readCount)
 
-                else :
-                    print("Error in TC file format - unexpected number of fields (" + str(len(fields)) + ") in the following line:\n" + line, file=log)
+                else:
+                    print("Error in TC file format - unexpected number of fields (%s) in the following line: %s" %
+                          (len(fields), line), file=log)
 
-    print("gene_name", "length", "readsCPM", "conversionRate", "Tcontent", "coverageOnTs", "conversionsOnTs", "readCount", "tcReadCount", "multimapCount", sep='\t', file=outCSV)
+    print(
+        "gene_name",
+        "length",
+        "readsCPM",
+        "conversionRate",
+        "Tcontent",
+        "coverageOnTs",
+        "conversionsOnTs",
+        "readCount",
+        "tcReadCount",
+        "multimapCount",
+        sep='\t',
+        file=outCSV
+    )
 
-    for gene in sorted(tcDict.keys()) :
-
-        print(gene,end="\t",file=outCSV)
-        print(tcDict[gene]['length'],end="\t",file=outCSV)
-        print(float(tcDict[gene]['readCount']) / float(readNumber) * 1000000,end="\t",file=outCSV)
+    for gene in sorted(tcDict.keys()):
+        print(gene, end="\t", file=outCSV)
+        print(tcDict[gene]['length'], end="\t", file=outCSV)
+        print(float(tcDict[gene]['readCount']) / float(readNumber) * 1000000, end="\t", file=outCSV)
         conversionRate = 0
-        if (tcDict[gene]['coverageOnTs'] > 0) :
+        if tcDict[gene]['coverageOnTs'] > 0:
             conversionRate = float(tcDict[gene]['conversionsOnTs']) / tcDict[gene]['coverageOnTs']
-        print(conversionRate,end="\t",file=outCSV)
-        print(tcDict[gene]['Tcontent'],end="\t",file=outCSV)
-        print(tcDict[gene]['coverageOnTs'],end="\t",file=outCSV)
-        print(tcDict[gene]['conversionsOnTs'],end="\t",file=outCSV)
-        print(tcDict[gene]['readCount'],end="\t",file=outCSV)
-        print(tcDict[gene]['tcReadCount'],end="\t",file=outCSV)
-        print(tcDict[gene]['multimapCount'],file=outCSV)
+        print(conversionRate, end="\t", file=outCSV)
+        print(tcDict[gene]['Tcontent'], end="\t", file=outCSV)
+        print(tcDict[gene]['coverageOnTs'], end="\t", file=outCSV)
+        print(tcDict[gene]['conversionsOnTs'], end="\t", file=outCSV)
+        print(tcDict[gene]['readCount'], end="\t", file=outCSV)
+        print(tcDict[gene]['tcReadCount'], end="\t", file=outCSV)
+        print(tcDict[gene]['multimapCount'], file=outCSV)
 
     outCSV.close()
+
 
 def getMean(values, skipZeros=True):
     count = 0.0
@@ -117,103 +123,256 @@ def getMean(values, skipZeros=True):
         if not skipZeros or value > 0:
             totalSum = totalSum + value
             count += 1
-    if(count > 0):
+    if count > 0:
         return totalSum / count
     else:
         return 0.0
 
-def computeTconversions(ref, bed, snpsFile, bam, maxReadLength, minQual, outputCSV, outputBedgraphPlus, outputBedgraphMinus, conversionThreshold, log, mle = False):
+
+def computeTconversionsAll(
+        ref,
+        snpsFile,
+        bam,
+        outputBedgraphPlus,
+        outputBedgraphPlusNew,
+        outputBedgraphMinus,
+        outputBedgraphMinusNew,
+        conversionThreshold,
+        minQual,
+        log,
+):
+    def to_bed_graph(c, data, bedgraph, rn):
+        data /= rn
+        data *= 1000000.0
+        [print(c, i, i+1, d, file=bedgraph) for i, d in enumerate(data)]
+
+    chroms_fw = {
+        'chrI': np.zeros(230218).astype('float32'),
+        'chrII': np.zeros(813184).astype('float32'),
+        'chrIII': np.zeros(316620).astype('float32'),
+        'chrIV': np.zeros(1531933).astype('float32'),
+        'chrIX': np.zeros(439888).astype('float32'),
+        'chrM': np.zeros(85779).astype('float32'),
+        'chrV': np.zeros(576874).astype('float32'),
+        'chrVI': np.zeros(270161).astype('float32'),
+        'chrVII': np.zeros(1090940).astype('float32'),
+        'chrVIII': np.zeros(562643).astype('float32'),
+        'chrX': np.zeros(745751).astype('float32'),
+        'chrXI': np.zeros(666816).astype('float32'),
+        'chrXII': np.zeros(1078177).astype('float32'),
+        'chrXIII': np.zeros(924431).astype('float32'),
+        'chrXIV': np.zeros(784333).astype('float32'),
+        'chrXV': np.zeros(1091291).astype('float32'),
+        'chrXVI': np.zeros(948066).astype('float32')
+    }
+    chroms_bw = copy.deepcopy(chroms_fw)
+    chroms_fw_new = copy.deepcopy(chroms_fw.copy())
+    chroms_bw_new = copy.deepcopy(chroms_fw.copy())
+    readNumber, positiveCount, negativeCount, positiveCountNew, negativeCountNew = 0, 0, 0, 0, 0
+    bamFile = pysam.AlignmentFile(bam, "rb")
+    if bamFile.header['HD']['SO'] != 'queryname':
+        # Sort bam file
+        sbam = replaceExtension(bam, '.bam', '_sorted')
+        if not os.path.exists(sbam):
+            run(
+                'samtools sort -n %s -o %s' % (bam, sbam),
+                log
+            )
+    else:
+        sbam = bam
+
+    bamFile = pysam.AlignmentFile(sbam, "rb")
+    snps = SNPtools.SNPDictionary(snpsFile)
+    snps.read()
+
+    # Go through one chr after the other
+    seqIter = SlamSeqIter(bamFile, ref, snps, conversionThreshold, minQual)
+    read1 = None
+    read2 = None
+    for read in seqIter:
+        if not read.isPaired or read.unmappedMate or read.duplicate:
+            continue
+        if read.isSecondRead:
+            read2 = read
+        else:
+            read1 = read
+            read2 = None
+            continue
+        if read1 is None or read2 is None or read1.queryName != read2.queryName:
+            continue
+        readNumber += 1
+        chrom = read1.chromosome
+        start = np.minimum(read1.startRefPos, read2.startRefPos)
+        end = np.maximum(read2.endRefPos, read2.endRefPos)
+        is_tc_read = read1.isTcRead or read2.isTcRead
+        if read2.direction == ReadDirection.Forward:
+            positiveCount += 1
+            chroms_fw[chrom][start:end] += 1
+            if is_tc_read:
+                positiveCountNew += 1
+                chroms_fw_new[chrom][start:end] += 1
+        else:
+            negativeCount += 1
+            chroms_bw[chrom][start:end] += 1
+            if is_tc_read:
+                negativeCountNew += 1
+                chroms_bw_new[chrom][start:end] += 1
+
+    print("Total reads: %s\n"
+          "Positive reads: %s\n"
+          "Positive reads new: %s\n"
+          "Negative reads: %s\n"
+          "Negative reads new: %s" %
+          (readNumber, positiveCount, positiveCountNew, negativeCount, negativeCountNew),
+          file=log)
+    fileBedgraphPlus = open(outputBedgraphPlus, 'w')
+    fileBedgraphPlusNew = open(outputBedgraphPlusNew, 'w')
+    fileBedgraphMinus = open(outputBedgraphMinus, 'w')
+    fileBedgraphMinusNew = open(outputBedgraphMinusNew, 'w')
+    for chrom in chroms_fw.keys():
+        to_bed_graph(chrom, chroms_fw[chrom], fileBedgraphPlus, readNumber)
+        to_bed_graph(chrom, chroms_bw[chrom], fileBedgraphMinus, readNumber)
+        to_bed_graph(chrom, chroms_fw_new[chrom], fileBedgraphPlusNew, readNumber)
+        to_bed_graph(chrom, chroms_bw_new[chrom], fileBedgraphMinusNew, readNumber)
+
+    fileBedgraphPlus.close()
+    fileBedgraphPlusNew.close()
+    fileBedgraphMinus.close()
+    fileBedgraphMinusNew.close()
+
+
+def computeTconversions(
+        ref,
+        bed,
+        snpsFile,
+        bam,
+        maxReadLength,
+        minQual,
+        outputCSV,
+        outputBedgraphPlus,
+        outputBedgraphMinus,
+        conversionThreshold,
+        log,
+        mle=False
+):
 
     referenceFile = pysam.FastaFile(ref)
-
     sampleInfo = getSampleInfo(bam)
-
     slamseqInfo = SlamSeqInfo(bam)
-    #readNumber = slamseqInfo.MappedReads
+    # readNumber = slamseqInfo.MappedReads
     readNumber = slamseqInfo.FilteredReads
-
     bedMD5 = md5(bed)
 
-    if(mle):
+    if mle:  # Not executed with default parameters
         fileNameTest = replaceExtension(outputCSV, ".tsv", "_perread")
-        fileTest = open(fileNameTest,'w')
-        print("#slamdunk v" + __version__, __count_version__, "sample info:", sampleInfo.Name, sampleInfo.ID, sampleInfo.Type, sampleInfo.Time, sep="\t", file=fileTest)
+        fileTest = open(fileNameTest, 'w')
+        print(
+            "#slamdunk v" + __version__,
+            __count_version__,
+            "sample info:",
+            sampleInfo.Name,
+            sampleInfo.ID,
+            sampleInfo.Type,
+            sampleInfo.Time,
+            sep="\t",
+            file=fileTest
+        )
         print("#annotation:", os.path.basename(bed), bedMD5, sep="\t", file=fileTest)
-        #print("utr", "n", "k", file=fileTest)
         print(SlamSeqInterval.Header, file=fileTest)
 
-
-    fileCSV = open(outputCSV,'w')
-    print("#slamdunk v" + __version__, __count_version__, "sample info:", sampleInfo.Name, sampleInfo.ID, sampleInfo.Type, sampleInfo.Time, sep="\t", file=fileCSV)
+    fileCSV = open(outputCSV, 'w')
+    print(
+        "#slamdunk v" + __version__,
+        __count_version__,
+        "sample info:",
+        sampleInfo.Name,
+        sampleInfo.ID,
+        sampleInfo.Type,
+        sampleInfo.Time,
+        sep="\t",
+        file=fileCSV
+    )
     print("#annotation:", os.path.basename(bed), bedMD5, sep="\t", file=fileCSV)
     print(SlamSeqInterval.Header, file=fileCSV)
 
     snps = SNPtools.SNPDictionary(snpsFile)
     snps.read()
 
-    #Go through one chr after the other
+    # Go through one chr after the other
     testFile = SlamSeqBamFile(bam, ref, snps)
     if not testFile.bamVersion == __bam_version__:
-        raise RuntimeError("Wrong filtered BAM file version detected (" + testFile.bamVersion + "). Expected version " + __bam_version__ + ". Please rerun slamdunk filter.")
+        raise RuntimeError("Wrong filtered BAM file version detected (%s). Expected version %s."
+                           " Please rerun slamdunk filter." % (testFile.bamVersion, __bam_version__))
 
     bedMD5 = md5(bed)
     if slamseqInfo.AnnotationMD5 != bedMD5:
-        print("Warning: MD5 checksum of annotation (" + bedMD5 + ") does not matched MD5 in filtered BAM files (" + slamseqInfo.AnnotationMD5 + "). Most probably the annotation filed changed after the filtered BAM files were created.", file=log)
+        print("Warning: MD5 checksum of annotation (%s) does not matched MD5 in filtered BAM files (%s). "
+              "Most probably the annotation filed changed after the filtered BAM files were created."
+              % (bedMD5, slamseqInfo.AnnotationMD5), file=log)
 
     conversionBedGraph = {}
 
-    for utr in BedIterator(bed):
+    for utr in BedIterator(bed):  # Although named utr, this is now seen as any entity in the bed file
         Tcontent = 0
-        slamSeqUtr = SlamSeqInterval(utr.chromosome, utr.start, utr.stop, utr.strand, utr.name, Tcontent, 0, 0, 0, 0, 0, 0, 0)
-        slamSeqUtrMLE = SlamSeqInterval(utr.chromosome, utr.start, utr.stop, utr.strand, utr.name, Tcontent, 0, 0, 0, 0, 0, 0, 0)
-        if(not utr.hasStrand()):
+        slamSeqUtr = SlamSeqInterval(
+            utr.chromosome,
+            utr.start,
+            utr.stop,
+            utr.strand,
+            utr.name,
+            Tcontent,
+            0, 0, 0, 0, 0, 0, 0
+        )
+        slamSeqUtrMLE = SlamSeqInterval(
+            utr.chromosome,
+            utr.start,
+            utr.stop,
+            utr.strand,
+            utr.name,
+            Tcontent,
+            0, 0, 0, 0, 0, 0, 0
+        )
+        if not utr.hasStrand():  # Strand specific
             raise RuntimeError("Input BED file does not contain stranded intervals.")
 
         if utr.start < 0:
-            raise RuntimeError("Negativ start coordinate found. Please check the following entry in your BED file: " + utr)
+            raise RuntimeError("Negative start coordinate found."
+                               "Please check the following entry in your BED file: " + utr)
         # Retreive reference sequence
         region = utr.chromosome + ":" + str(utr.start + 1) + "-" + str(utr.stop)
-
-        if(utr.chromosome in list(referenceFile.references)):
-            #print(refRegion,file=sys.stderr)
-            # pysam-0.15.0.1
-            #refSeq = referenceFile.fetch(region=region).upper()
+        if utr.chromosome in list(referenceFile.references):
             refSeq = referenceFile.fetch(reference=utr.chromosome, start=utr.start, end=utr.stop).upper()
-            if (utr.strand == "-") :
-                #refSeq = complement(refSeq[::-1])
+            if utr.strand == "-":
                 Tcontent = refSeq.count("A")
-            else :
+            else:
                 Tcontent = refSeq.count("T")
-
 
             slamSeqUtr._Tcontent = Tcontent
 
-        readIterator = testFile.readInRegion(utr.chromosome, utr.start, utr.stop, utr.strand, maxReadLength, minQual, conversionThreshold)
+        # Get read that corresponds to the region
+        readIterator = testFile.readInRegion(
+            utr.chromosome,
+            utr.start,
+            utr.stop,
+            utr.strand,
+            maxReadLength,
+            minQual,
+            conversionThreshold
+        )
 
         tcCountUtr = [0] * utr.getLength()
         coverageUtr = [0] * utr.getLength()
-
-        tInReads = []
-        tcInRead = []
-
-        countFwd = 0
-        tcCountFwd = 0
-        countRev = 0
-        tCountRev = 0
-
-        multiMapFwd = 0
-        multiMapRev = 0
-
+        tInReads, tcInRead = [], []
+        countFwd, tcCountFwd, countRev, tCountRev, multiMapFwd, multiMapRev = 0, 0, 0, 0, 0, 0
         for read in readIterator:
-
             # Overwrite any conversions for non-TC reads (reads with < 2 TC conversions)
-            if (not read.isTcRead) :
+            if not read.isTcRead:
                 read.tcCount = 0
                 read.mismatches = []
                 read.conversionRates = 0.0
                 read.tcRate = 0.0
 
-            if(read.direction == ReadDirection.Reverse):
+            if read.direction == ReadDirection.Reverse:
                 countRev += 1
                 if read.tcCount > 0:
                     tCountRev += 1
@@ -227,42 +386,43 @@ def computeTconversions(ref, bed, snpsFile, bam, maxReadLength, minQual, outputC
                     multiMapFwd += 1
 
             for mismatch in read.mismatches:
-                if(mismatch.isTCMismatch(read.direction == ReadDirection.Reverse) and mismatch.referencePosition >= 0 and mismatch.referencePosition < utr.getLength()):
+                if mismatch.isTCMismatch(read.direction == ReadDirection.Reverse) and\
+                        0 <= mismatch.referencePosition < utr.getLength():
                     tcCountUtr[mismatch.referencePosition] += 1
 
             testN = read.getTcount()
             testk = 0
             for mismatch in read.mismatches:
-                if(mismatch.referencePosition >= 0 and mismatch.referencePosition < utr.getLength()):
-                    if(mismatch.isT(read.direction == ReadDirection.Reverse)):
+                if 0 <= mismatch.referencePosition < utr.getLength():
+                    if mismatch.isT(read.direction == ReadDirection.Reverse):
                         testN += 1
-                    if(mismatch.isTCMismatch(read.direction == ReadDirection.Reverse)):
+                    if mismatch.isTCMismatch(read.direction == ReadDirection.Reverse):
                         testk += 1
-            #print(utr.name, read.name, read.direction, testN, testk, read.sequence, sep="\t")
             tInReads.append(testN)
             tcInRead.append(testk)
-            #print(utr.name, testN, testk, sep="\t", file=fileTest)
 
             for i in range(read.startRefPos, read.endRefPos):
-                if(i >= 0 and i < utr.getLength()):
+                if 0 <= i < utr.getLength():
                     coverageUtr[i] += 1
 
-
-        if((utr.strand == "+" and countFwd > 0) or (utr.strand == "-" and countRev > 0)):
-            tcRateUtr = [ x * 100.0 / y if y > 0 else 0 for x, y in zip(tcCountUtr, coverageUtr)]
-
+        if (utr.strand == "+" and countFwd > 0) or (utr.strand == "-" and countRev > 0):
+            tcRateUtr = [x * 100.0 / y if y > 0 else 0 for x, y in zip(tcCountUtr, coverageUtr)]
             readCount = countFwd
             tcReadCount = tcCountFwd
             multiMapCount = multiMapFwd
 
-            if(utr.strand == "-"):
+            if utr.strand == "-":
                 readCount = countRev
                 tcReadCount = tCountRev
                 multiMapCount = multiMapRev
 
-            if((utr.strand == "-" and countFwd > countRev) or (utr.strand == "+" and countRev > countFwd)):
-                print("Warning: " + utr.name + " is located on the " + utr.strand + " strand but read counts are higher for the opposite strand (fwd: " + countFwd + ", rev: " + countRev + ")", file=sys.stderr)
-
+            if (utr.strand == "-" and countFwd > countRev) or (utr.strand == "+" and countRev > countFwd):
+                print(
+                    "Warning: %s is located on the %s strand but "
+                    "read counts are higher for the opposite strand (fwd:%s, rev: %s)" %
+                    (utr.name, utr.strand, countFwd, countRev),
+                    file=sys.stderr
+                )
 
             refSeq = readIterator.getRefSeq()
 
@@ -276,40 +436,72 @@ def computeTconversions(ref, bed, snpsFile, bam, maxReadLength, minQual, outputC
 
             for position in range(0, len(coverageUtr)):
 
-                if(coverageUtr[position] > 0 and ((utr.strand == "+" and refSeq[position] == "T") or (utr.strand == "-" and refSeq[position] == "A"))):
+                if coverageUtr[position] > 0 and (
+                        (utr.strand == "+" and refSeq[position] == "T")
+                        or (utr.strand == "-" and refSeq[position] == "A")
+                ):
                     coveredTcount += 1
                     avgConversationRate += tcRateUtr[position]
 
                     coverageOnTs += coverageUtr[position]
                     conversionsOnTs += tcCountUtr[position]
-                    conversionBedGraph[utr.chromosome + ":" + str(utr.start + position) + ":" + str(utr.strand)] = tcRateUtr[position]
-                if(coverageUtr[position] > 0):
+                    conversionBedGraph[
+                        "%s:%s:%s" % (utr.chromosome, utr.start + position, utr.strand)
+                    ] = tcRateUtr[position]
+                if coverageUtr[position] > 0:
                     coveredPositions += 1
 
-            if(coveredTcount > 0):
+            if coveredTcount > 0:
                 avgConversationRate = avgConversationRate / coveredTcount
             else:
                 avgConversationRate = 0
 
             # reads per million mapped to the UTR
             readsCPM = 0
-            if(readNumber > 0):
-                readsCPM = readCount  * 1000000.0 / readNumber
-
+            if readNumber > 0:
+                readsCPM = readCount * 1000000.0 / readNumber
 
             # Convert to SlamSeqInterval and print
             conversionRate = 0
-            if (coverageOnTs > 0) :
+            if coverageOnTs > 0:
                 conversionRate = float(conversionsOnTs) / float(coverageOnTs)
-            slamSeqUtr = SlamSeqInterval(utr.chromosome, utr.start, utr.stop, utr.strand, utr.name, Tcontent, readsCPM, coverageOnTs, conversionsOnTs, conversionRate, readCount, tcReadCount, multiMapCount)
-            slamSeqUtrMLE = SlamSeqInterval(utr.chromosome, utr.start, utr.stop, utr.strand, utr.name, Tcontent, readsCPM, coverageOnTs, conversionsOnTs, conversionRate, ",".join(str(x) for x in tInReads), ",".join(str(x) for x in tcInRead), multiMapCount)
+            slamSeqUtr = SlamSeqInterval(
+                utr.chromosome,
+                utr.start,
+                utr.stop,
+                utr.strand,
+                utr.name,
+                Tcontent,
+                readsCPM,
+                coverageOnTs,
+                conversionsOnTs,
+                conversionRate,
+                readCount,
+                tcReadCount,
+                multiMapCount
+            )
+            slamSeqUtrMLE = SlamSeqInterval(
+                utr.chromosome,
+                utr.start,
+                utr.stop,
+                utr.strand,
+                utr.name,
+                Tcontent,
+                readsCPM,
+                coverageOnTs,
+                conversionsOnTs,
+                conversionRate,
+                ",".join(str(x) for x in tInReads),
+                ",".join(str(x) for x in tcInRead),
+                multiMapCount
+            )
 
         print(slamSeqUtr, file=fileCSV)
-        if(mle):
+        if mle:
             print(slamSeqUtrMLE, file=fileTest)
 
     fileCSV.close()
-    if(mle):
+    if mle:
         fileTest.close()
 
     fileBedgraphPlus = open(outputBedgraphPlus,'w')
@@ -317,8 +509,14 @@ def computeTconversions(ref, bed, snpsFile, bam, maxReadLength, minQual, outputC
 
     for position in conversionBedGraph:
         positionData = position.split(":")
-        if(positionData[2] == "+"):
-            print(positionData[0], positionData[1], int(positionData[1]) + 1, conversionBedGraph[position], file=fileBedgraphPlus)
+        if positionData[2] == "+":
+            print(
+                positionData[0],
+                positionData[1],
+                int(positionData[1]) + 1,
+                conversionBedGraph[position],
+                file=fileBedgraphPlus
+            )
         else:
             print(positionData[0], positionData[1], int(positionData[1]) + 1, conversionBedGraph[position], file=fileBedgraphMinus)
 
@@ -328,6 +526,7 @@ def computeTconversions(ref, bed, snpsFile, bam, maxReadLength, minQual, outputC
     if(mle):
         fileNameMLE = replaceExtension(outputCSV, ".tsv", "_mle")
         callR(getPlotter("compute_conversion_rate_mle") +  " -f " + fileNameTest + " -r " + "0.024" + " -o " + fileNameMLE + " &> /dev/null")
+
 
 def genomewideConversionRates(referenceFile, snpsFile, bam, minBaseQual, outputBedGraphPrefix, conversionThreshold, coverageCutoff, log):
 

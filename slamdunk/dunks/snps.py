@@ -18,24 +18,39 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
+import os
 import subprocess
 import csv
-from slamdunk.utils.misc import checkStep, getBinary  # @UnresolvedImport
+from slamdunk.utils.misc import checkStep  # @UnresolvedImport
 
-def SNPs(inputBAM, outputSNP, referenceFile, minVarFreq, minCov, minQual, log, printOnly=False, verbose=True, force=False):
-    if(checkStep([inputBAM, referenceFile], [outputSNP], force)):
-        fileSNP = open(outputSNP, 'w')
 
-        mpileupCmd = "samtools mpileup -B -A -f " + referenceFile + " " + inputBAM
-        if(verbose):
+def SNPs(
+        inputBAM,
+        outputSNP,
+        referenceFile,
+        minVarFreq,
+        minCov,
+        minQual,
+        log,
+        printOnly=False,
+        verbose=True,
+        force=False
+):
+    files = [os.path.expanduser(p) for p in [inputBAM, referenceFile]]
+    if checkStep(files, [os.path.expanduser(outputSNP)], force):
+        fileSNP = open(outputSNP, "w")
+
+        mpileupCmd = "samtools mpileup -B -A -f %s %s" % (referenceFile, inputBAM)
+        if verbose:
             print(mpileupCmd, file=log)
-        if(not printOnly):
+        if not printOnly:
             mpileup = subprocess.Popen(mpileupCmd, shell=True, stdout=subprocess.PIPE, stderr=log)
 
-        varscanCmd = "varscan mpileup2snp  --strand-filter 0 --output-vcf --min-var-freq " + str(minVarFreq) + " --min-coverage " + str(minCov) + " --variants 1"
-        if(verbose):
+        varscanCmd = "varscan mpileup2snp --strand-filter 0 --output-vcf " \
+                     "--min-var-freq %s --min-coverage %s --variants 1" % (str(minVarFreq), str(minCov),)
+        if verbose:
             print(varscanCmd, file=log)
-        if(not printOnly):
+        if not printOnly:
             varscan = subprocess.Popen(varscanCmd, shell=True, stdin=mpileup.stdout, stdout=fileSNP, stderr=log)
             varscan.wait()
 
@@ -43,13 +58,15 @@ def SNPs(inputBAM, outputSNP, referenceFile, minVarFreq, minCov, minQual, log, p
     else:
         print("Skipping SNP calling", file=log)
 
+
 def countSNPsInFile(inputFile):
     snpCount = 0
     tcSnpCount = 0
     with open(inputFile, "r") as snpFile:
-            snpReader = csv.reader(snpFile, delimiter='\t')
-            for row in snpReader:
-                if((row[2].upper() == "T" and row[3].upper() == "C") or (row[2].upper() == "A" and row[3].upper() == "G")):
-                    tcSnpCount = tcSnpCount + 1
-                snpCount = snpCount + 1
+        snpReader = csv.reader(snpFile, delimiter="\t")
+        for row in snpReader:
+            if ((row[2].upper() == "T" and row[3].upper() == "C")
+                    or (row[2].upper() == "A" and row[3].upper() == "G")):
+                tcSnpCount = tcSnpCount + 1
+            snpCount = snpCount + 1
     return snpCount, tcSnpCount

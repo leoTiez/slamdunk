@@ -17,16 +17,14 @@
 
 from intervaltree import IntervalTree
 
+
 def bedToIntervallTree(bed):
     utrs = {}
-
     for utr in BedIterator(bed):
-
-        if (not utr.chromosome in utrs) :
+        if utr.chromosome not in utrs:
             utrs[utr.chromosome] = IntervalTree()
 
         utrs[utr.chromosome][utr.start:(utr.stop + 1)] = utr.name
-
     return utrs
 
 
