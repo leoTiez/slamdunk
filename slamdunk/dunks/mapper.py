@@ -168,4 +168,4 @@ def Map(
         )
         run(cmd, log, verbose=verbose, dry=printOnly)
     else:
-        print("Skipped mapping for " + inputBAM, file=log)
+        print("Skipped mapping for " + inputBAM if not isPaired else inputBAM[0], file=log)
