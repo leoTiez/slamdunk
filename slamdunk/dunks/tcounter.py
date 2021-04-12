@@ -139,6 +139,7 @@ def computeTconversionsAll(
         outputBedgraphMinusNew,
         conversionThreshold,
         minQual,
+        is_inverse,
         log,
 ):
     def to_bed_graph(c, data, bedgraph, rn):
@@ -205,7 +206,8 @@ def computeTconversionsAll(
         start = np.minimum(read1.startRefPos, read2.startRefPos)
         end = np.maximum(read2.endRefPos, read2.endRefPos)
         is_tc_read = read1.isTcRead or read2.isTcRead
-        if read2.direction == ReadDirection.Forward:
+        direction_read = read1 if not is_inverse else read2
+        if direction_read.direction == ReadDirection.Forward:
             positiveCount += 1
             chroms_fw[chrom][start:end] += 1
             if is_tc_read:
