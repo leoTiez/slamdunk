@@ -288,6 +288,7 @@ def processCount(
         maxLength,
         minQual,
         conversionThreshold,
+        is_inverse,
         snpDirectory,
         vcfFile,
         outputDirectory,
@@ -305,6 +306,7 @@ def processCount(
             maxLength,
             minQual,
             conversionThreshold,
+            is_inverse,
             dunkPath,
             snpDirectory,
             vcfFile
@@ -433,6 +435,7 @@ def runCount(
         maxLength,
         minQual,
         conversionThreshold,
+        is_inverse,
         outputDirectory,
         snpDirectory,
         vcfFile,
@@ -493,6 +496,7 @@ def runCount(
             outputBedgraphMinusNew,
             conversionThreshold,
             minQual,
+            is_inverse,
             log
         )
     stepFinished()
@@ -552,6 +556,7 @@ def runAll(args):
         args.maxLength,
         args.minQual,
         args.conversionThreshold,
+        args.inverse,
         snpDirectory,
         vcfFile,
         outputDirectory,
@@ -671,9 +676,11 @@ def run():
                              help="Min base quality for T -> C conversions (default: %(default)d)")
     countparser.add_argument("-t", "--threads", type=int, required=False, default=1, dest="threads",
                              help="Thread number (default: %(default)d)")
+    countparser.add_argument("--inverse", dest="inverse", action="store_true",
+                             help="If set, it is assumed that the reads are from the inverse strand.")
 
     # all command
-    allparser = subparsers.add_parser("all", help="Run entire SLAMdunk analysis")
+    allparser = subparsers.add_parser("all", help="Run enti`re SLAMdunk analysis")
     allparser.add_argument("files", action="store", nargs="+",
                            help="Single csv/tsv file (recommended) containing all sample files and sample info or a"
                                 " list of all sample BAM/FASTA(gz)/FASTQ(gz) files")
@@ -732,6 +739,9 @@ def run():
 
     allparser.add_argument("--paired", action="store_true", dest="paired",
                            help="Set this flag if the data files represent paired data, i.e. forward and reverse reads")
+
+    allparser.add_argument("--inverse", dest="inverse", action="store_true",
+                             help="If set, it is assumed that the reads are from the inverse strand.")
     args = parser.parse_args()
 
     ########################################################################
@@ -797,6 +807,7 @@ def run():
             args.maxLength,
             args.minQual,
             args.conversionThreshold,
+            args.inverse,
             args.snpDir if "snpDir" in args else None,
             args.vcfFile if "vcfFile" in args else None,
             outputDirectory,
