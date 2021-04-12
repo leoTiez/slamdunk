@@ -25,7 +25,7 @@ map --paired -5 0 read1.fastq.gz read2.fastq.gz -r reference.fa -o out/
 where `read1.fastq.gz` and `read2.fastq.gz` are your paired reads, `-5 0` means that you take the full 5' end into
 account, `-r reference.fa` is your reference file, and `-o out/` is the output directory.
 
- 
+Add `--inverse` to the count or all command if the reads in your library are from the inverse strand. 
 ### References
 
 [1] Neumann, T., Herzog, V. A., Muhar, M., Haeseler, von, A., Zuber, J., Ameres, S. L., & Rescheneder, P. (2019). [Quantification of experimentally induced nucleotide conversions in high-throughput sequencing datasets](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/s12859-019-2849-7). BMC Bioinformatics, 20(1), 258. http://doi.org/10.1186/s12859-019-2849-7
