@@ -203,8 +203,8 @@ def computeTconversionsAll(
             continue
         readNumber += 1
         chrom = read1.chromosome
-        start = np.minimum(read1.startRefPos, read2.startRefPos)
-        end = np.maximum(read2.endRefPos, read2.endRefPos)
+        start = np.min([read1.startRefPos, read2.startRefPos, read1.endRefPos, read2.endRefPos])
+        end = np.max([read1.startRefPos, read2.startRefPos, read1.endRefPos, read2.endRefPos])
         is_tc_read = read1.isTcRead or read2.isTcRead
         direction_read = read1 if not is_inverse else read2
         if direction_read.direction == ReadDirection.Forward:
